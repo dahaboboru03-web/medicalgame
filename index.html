@@ -84,16 +84,13 @@ button:hover { background: #1565c0; }
 }
 
 .result-card {
-    background: rgba(0, 0, 0, 0.75);  /* Black with 75% opacity */
+    background: rgba(255,255,255,0.15);
+    backdrop-filter: blur(12px);
     padding: 30px;
     border-radius: 15px;
     width: 320px;
-    color: white;                     /* Text stays white */
-    border: 1px solid rgba(255, 255, 255, 0.2);  /* subtle border */
-    box-shadow: 0 0 20px rgba(0,0,0,0.5);        /* optional soft shadow */
-    backdrop-filter: blur(4px);       /* slightly blur overlay behind */
-    -webkit-backdrop-filter: blur(4px);
-    animation: pop 0.4s ease;
+    color: white;
+    border: 1px solid rgba(255,255,255,0.3);
 }
 
 
@@ -296,5 +293,6 @@ startGame();
 
 </body>
 </html>
+
 
 
