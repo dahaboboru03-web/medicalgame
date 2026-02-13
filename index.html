@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clinical Memory Match</title>
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background: linear-gradient(135deg, #e3f2fd, #bbdefb);
+    text-align: center;
+    margin: 0;
+    padding: 20px;
+}
+
+h1 { color: #0d47a1; }
+
+.controls {
+    margin-bottom: 15px;
+}
+
+select, input {
+    padding: 8px;
+    border-radius: 5px;
+    border: none;
+    margin: 5px;
+}
+
+.stats {
+    margin: 10px 0;
+    font-size: 18px;
+}
+
+.game-board {
+    display: grid;
+    gap: 10px;
+    justify-content: center;
+    margin-top: 20px;
+}
+
+.card {
+    width: 80px;
+    height: 80px;
+    background: #1565c0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    color: white;
+    cursor: pointer;
+    border-radius: 12px;
+    transition: 0.3s;
+}
+
+.card.flipped {
+    background: white;
+    color: black;
+}
+
+button {
+    padding: 8px 15px;
+    border: none;
+    background: #0d47a1;
+    color: white;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+button:hover { background: #1565c0; }
+
+/* Overlay */
+.overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(70, 70, 70, 0.65);
+    backdrop-filter: blur(6px);
+    display: none;
+    justify-content: center;
+    align-items: center;
+}
+
+.result-card {
+    background: rgba(255,255,255,0.15);
+    backdrop-filter: blur(12px);
+    padding: 30px;
+    border-radius: 15px;
+    width: 320px;
+    color: white;
+    border: 1px solid rgba(255,255,255,0.3);
+}
+
+.leaderboard {
+    margin-top: 25px;
+}
+
+.leaderboard ul {
+    list-style: none;
+    padding: 0;
+}
+</style>
+</head>
+<body>
+
+<h1>🏥 Clinical Memory Match</h1>
+
+<div class="controls">
+    <input type="text" id="playerName" placeholder="Enter your name">
+    <select id="difficulty">
+        <option value="easy">Easy (8 pairs)</option>
+        <option value="medium">Medium (10 pairs)</option>
+        <option value="hard">Hard (12 pairs)</option>
+    </select>
+    <button onclick="restartGame()">Start Game</button>
+</div>
+
+<div class="stats">
+    ⏱ Time: <span id="timer">0</span>s |
+    🔄 Moves: <span id="moves">0</span> |
+    🏆 Best: <span id="bestScore">0</span>
+</div>
+
+<div class="game-board" id="gameBoard"></div>
+
+<div class="leaderboard">
+    <h3>🏆 Leaderboard (Top 5)</h3>
+    <ul id="leaderboardList"></ul>
+</div>
+
+<!-- Overlay -->
+<div class="overlay" id="overlay">
+    <div class="result-card">
+        <h2>🎉 YOU HAVE WON!</h2>
+        <p>⭐ Score: <span id="finalScore"></span></p>
+        <p>⏱ Time: <span id="finalTime"></span>s</p>
+        <p>🔄 Moves: <span id="finalMoves"></span></p>
+        <button onclick="restartGame()">Play Again</button>
+    </div>
+</div>
+
+<script>
+let symbolsBase = ["🩺","💉","🌡","🩹","🧤","💊","🏥","🧪","🧬","🧫","🧠","🦴"];
+let flippedCards = [];
+let moves = 0;
+let matchedPairs = 0;
+let timer = 0;
+let timerInterval;
+let currentSymbols = [];
+
+const board = document.getElementById("gameBoard");
+const movesDisplay = document.getElementById("moves");
+const timerDisplay = document.getElementById("timer");
+const bestScoreDisplay = document.getElementById("bestScore");
+const overlay = document.getElementById("overlay");
+const leaderboardList = document.getElementById("leaderboardList");
+
+function shuffle(array) {
+    return array.sort(() => 0.5 - Math.random());
+}
+
+function getDifficultyPairs() {
+    let diff = document.getElementById("difficulty").value;
+    if (diff === "easy") return 8;
+    if (diff === "medium") return 10;
+    return 12;
+}
+
+function startGame() {
+    clearInterval(timerInterval);
+    moves = 0;
+    matchedPairs = 0;
+    timer = 0;
+    flippedCards = [];
+    movesDisplay.textContent = 0;
+    timerDisplay.textContent = 0;
+
+    let pairs = getDifficultyPairs();
+    currentSymbols = symbolsBase.slice(0, pairs);
+    let cards = shuffle([...currentSymbols, ...currentSymbols]);
+
+    board.innerHTML = "";
+    board.style.gridTemplateColumns = `repeat(${Math.sqrt(pairs*2)}, 80px)`;
+
+    cards.forEach(symbol => {
+        const card = document.createElement("div");
+        card.classList.add("card");
+        card.dataset.symbol = symbol;
+        card.addEventListener("click", flipCard);
+        board.appendChild(card);
+    });
+
+    timerInterval = setInterval(() => {
+        timer++;
+        timerDisplay.textContent = timer;
+    }, 1000);
+
+    loadBestScore();
+}
+
+function flipCard() {
+    if (flippedCards.length < 2 && !this.classList.contains("flipped")) {
+        this.classList.add("flipped");
+        this.textContent = this.dataset.symbol;
+        flippedCards.push(this);
+    }
+
+    if (flippedCards.length === 2) {
+        moves++;
+        movesDisplay.textContent = moves;
+
+        if (flippedCards[0].dataset.symbol === flippedCards[1].dataset.symbol) {
+            matchedPairs++;
+            flippedCards = [];
+
+            if (matchedPairs === currentSymbols.length) {
+                clearInterval(timerInterval);
+                showWinScreen();
+            }
+        } else {
+            setTimeout(() => {
+                flippedCards.forEach(card => {
+                    card.classList.remove("flipped");
+                    card.textContent = "";
+                });
+                flippedCards = [];
+            }, 700);
+        }
+    }
+}
+
+function calculateScore() {
+    return Math.max(300 - (moves * 5) - (timer * 2), 50);
+}
+
+function showWinScreen() {
+    let score = calculateScore();
+    document.getElementById("finalScore").textContent = score;
+    document.getElementById("finalTime").textContent = timer;
+    document.getElementById("finalMoves").textContent = moves;
+    overlay.style.display = "flex";
+
+    saveBestScore(score);
+    saveToLeaderboard(score);
+}
+
+function saveBestScore(score) {
+    let best = localStorage.getItem("bestScore") || 0;
+    if (score > best) {
+        localStorage.setItem("bestScore", score);
+    }
+    loadBestScore();
+}
+
+function loadBestScore() {
+    bestScoreDisplay.textContent = localStorage.getItem("bestScore") || 0;
+}
+
+function saveToLeaderboard(score) {
+    let name = document.getElementById("playerName").value || "Anonymous";
+    let leaderboard = JSON.parse(localStorage.getItem("leaderboard")) || [];
+
+    leaderboard.push({name, score});
+    leaderboard.sort((a,b) => b.score - a.score);
+    leaderboard = leaderboard.slice(0,5);
+
+    localStorage.setItem("leaderboard", JSON.stringify(leaderboard));
+    loadLeaderboard();
+}
+
+function loadLeaderboard() {
+    let leaderboard = JSON.parse(localStorage.getItem("leaderboard")) || [];
+    leaderboardList.innerHTML = "";
+    leaderboard.forEach(player => {
+        let li = document.createElement("li");
+        li.textContent = `${player.name} - ${player.score}`;
+        leaderboardList.appendChild(li);
+    });
+}
+
+function restartGame() {
+    overlay.style.display = "none";
+    startGame();
+}
+
+loadLeaderboard();
+startGame();
+</script>
+
+</body>
+</html>
